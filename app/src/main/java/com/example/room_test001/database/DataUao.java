@@ -11,6 +11,10 @@ import androidx.room.Update;
 import java.util.List;
 import java.util.Observable;
 
+import io.reactivex.Flowable;
+import io.reactivex.Maybe;
+import io.reactivex.Single;
+
 @Dao
 public interface DataUao {
 
@@ -27,8 +31,20 @@ public interface DataUao {
     /**=======================================================================================*/
     /**撈取全部資料*/
     //**
-    // 在要監聽的資料上建立Observable。
+    // 監聽資料表，三種observable。
     // /
+    @Query("SELECT * FROM "+ tableName + " WHERE id = :name")
+    public abstract Flowable<List<MyData>> getMyData(String name);
+
+    @Query("SELECT * FROM " + tableName)
+    Flowable<List<MyData>> getFlowable();
+
+    @Query("SELECT * FROM " + tableName)
+    Maybe<List<MyData>> getMaybe();
+
+    @Query("SELECT * FROM " + tableName)
+    Single<List<MyData>> getSingle();
+    /******************************************************************************************/
     @Query("SELECT * FROM " + tableName)
     List<MyData> displayAll();
 

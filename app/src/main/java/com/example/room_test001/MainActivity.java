@@ -8,7 +8,9 @@ import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
 import android.os.Bundle;
+import android.provider.ContactsContract;
 import android.util.Log;
+import android.widget.Adapter;
 import android.widget.Button;
 import android.widget.EditText;
 import android.widget.Toast;
@@ -20,13 +22,23 @@ import com.example.room_test001.database.MyData;
 //Stetho工具，需要另外加入implementation in gradle.
 import com.facebook.stetho.Stetho;
 
+import org.reactivestreams.Subscription;
+
 import java.util.List;
 
+import io.reactivex.FlowableSubscriber;
+import io.reactivex.MaybeObserver;
 import io.reactivex.Observable;
 import io.reactivex.ObservableEmitter;
 import io.reactivex.ObservableOnSubscribe;
 import io.reactivex.Observer;
+import io.reactivex.Scheduler;
+import io.reactivex.SingleObserver;
+import io.reactivex.android.schedulers.AndroidSchedulers;
 import io.reactivex.disposables.Disposable;
+import io.reactivex.functions.Action;
+import io.reactivex.functions.Consumer;
+import io.reactivex.schedulers.Schedulers;
 
 
 public class MainActivity extends AppCompatActivity {
@@ -60,42 +72,109 @@ public class MainActivity extends AppCompatActivity {
         recyclerView.setLayoutManager(new LinearLayoutManager(this));
         recyclerView.addItemDecoration(new DividerItemDecoration(this, DividerItemDecoration.VERTICAL));//設置分隔線
 
-        //建立被觀察者
-        Observable observable = Observable.create((ObservableOnSubscribe<String>) e -> {   //ObservableEmitter為信號發送器，此發送String型態資料，也可發送別的
-            //向觀察者(Observer)發送信號
-            e.onNext("This");
-            e.onNext("is");
-            e.onNext("a");
-            e.onComplete();
-            e.onNext("Observable");//已onComplete，不會發送此行信號
-        });
-        //建立觀察者
-        Observer<String> observer = new Observer<String>() {    //傳入String型態資料
-            @Override
-            public void onSubscribe(Disposable d) { //Disposable可用以解除訂閱(d.dispose())、或查詢是否解除訂閱(d.isDisposed())
+/**建立被觀察者**/
+/**Consumer是Rxjava的一個簡寫方式**/
+//**
+//      DataBase.getInstance(this).getDataUao().getALL()
+//                        .subscribeOn(Schedulers.io())
+//                                .observeOn(AndroidSchedulers.mainThread())
+//                                        .subscribe(new Consumer<List<MyData>>() {
+//                                            @Override
+//                                            public void accept(List<MyData> myData) throws Exception {
+//                                                List<MyData> mUserList = myData;
+//
+//                                            }
+//                                        }, new Consumer<Throwable>() {
+//                                            @Override
+//                                            public void accept(Throwable throwable) throws Exception {
+//                                                Log.e("TTT","OnError"+throwable);
+//                                            }
+//                                        }, new Action() {
+//                                            @Override
+//                                            public void run() throws Exception {
+//                                                Log.e("TTT","Complete");
+//                                            }
+//                                        }, new Consumer<Subscription>() {
+//                                            @Override
+//                                            public void accept(Subscription subscription) throws Exception {
+//                                                Log.e("TTT","Subscription"+subscription);
+//                                            }
+//
+//                                        });
+// /
 
-            }
+/**Flowable觀察者**/
+        DataBase.getInstance(this).getDataUao().getFlowable()
+                        .subscribeOn(Schedulers.io())
+                                .observeOn(AndroidSchedulers.mainThread())
+                                        .subscribe(new FlowableSubscriber<List<MyData>>() {
+                                            @Override
+                                            public void onSubscribe(Subscription s) {
+                                                Log.e("Flowable","OnSubscribe"+s);
+                                            }
 
-            @Override
-            public void onNext(String value) {  //改為String型態
-                Log.d("observer","onNext:"+value);
-            }
+                                            @Override
+                                            public void onNext(List<MyData> myData) {
+                                                Log.e("Flowable","onNEXT");
+                                            }
 
-            @Override
-            public void onError(Throwable e) {
+                                            @Override
+                                            public void onError(Throwable t) {
+                                                Log.e("Flowable","OnError"+t);
+                                            }
 
-            }
+                                            @Override
+                                            public void onComplete() {
+                                                Log.e("Flowable","Complete");
+                                            }
+                                        });
 
-            @Override
-            public void onComplete() {
-                Log.d("observer","onComplete!");
-            }
-        };
-        //產生訂閱(subscribe)以結合，Observable->Observer
-        observable.subscribe(observer);
+/**Maybe觀察者**/
+//如果沒有撈到資料時會進入onComplete，有撈取到資料會進入onSuccess。屬於一次性查詢。
+        DataBase.getInstance(this).getDataUao().getMaybe()
+                        .subscribeOn(Schedulers.io())
+                                .observeOn(AndroidSchedulers.mainThread())
+                                        .subscribe(new MaybeObserver<List<MyData>>() {
+                                            @Override
+                                            public void onSubscribe(Disposable d) {
+                                                Log.e("Maybe","Subscription "+d);
+                                            }
 
-        //先檢查順序Adapter、有沒有放錯，有沒有拿到。
+                                            @Override
+                                            public void onSuccess(List<MyData> myData) {
+                                                Log.e("Maybe","onSuccess "+myData);
+                                            }
 
+                                            @Override
+                                            public void onError(Throwable e) {
+                                                Log.e("Maybe","OnError "+e);
+                                            }
+
+                                            @Override
+                                            public void onComplete() {
+                                                Log.e("Maybe","Complete");
+                                            }
+                                        });
+/**Single觀察者**/
+        DataBase.getInstance(this).getDataUao().getSingle()
+                        .subscribeOn(Schedulers.io())
+                                .observeOn(AndroidSchedulers.mainThread())
+                                        .subscribe(new SingleObserver<List<MyData>>() {
+                                            @Override
+                                            public void onSubscribe(Disposable d) {
+                                                Log.e("Single","Subscription "+d);
+                                            }
+
+                                            @Override
+                                            public void onSuccess(List<MyData> myData) {
+                                                Log.e("Single","onSuccess "+myData);
+                                            }
+
+                                            @Override
+                                            public void onError(Throwable e) {
+                                                Log.e("Single","OnError "+e);
+                                            }
+                                        });
         setRecyclerFunction(recyclerView);//設置RecyclerView左滑刪除
         //設定更改資料的事件
         btModify.setOnClickListener((view) ->{
@@ -127,6 +206,7 @@ public class MainActivity extends AppCompatActivity {
             editHobby.setText("");
             editEmail.setText("");
             nowSelectedData = null;
+            Toast.makeText(this,"已清空",Toast.LENGTH_LONG).show();
         }));
 
         //========================================//
@@ -148,6 +228,7 @@ public class MainActivity extends AppCompatActivity {
                    editAge.setText("");
                    editHobby.setText("");
                    editEmail.setText("");
+                   Toast.makeText(this,"以新增資料",Toast.LENGTH_LONG).show();
                });
 //
 //                myAdapter.refreshView();
@@ -164,8 +245,10 @@ public class MainActivity extends AppCompatActivity {
                 refrashed();
                 runOnUiThread(()->{
                     myAdapter.refreshView();
+                    Toast.makeText(this,"已刷新資料表",Toast.LENGTH_LONG).show();
                 });
             }).start();
+            //getMyData
         });
     }
     //初始化RecyclerView的表格
